@@ -25,6 +25,9 @@ env/
 # Environment variables (keep .env.example)
 .env
 
+# Claude Code
+.claude/
+
 # macOS
 .DS_Store
 
