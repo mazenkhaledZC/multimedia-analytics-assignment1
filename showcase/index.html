@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Modal RAG — NASA Docs QA</title>
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111827;
+      --card: #1a2236;
+      --border: #1e3a5f;
+      --accent: #3b82f6;
+      --accent2: #06b6d4;
+      --accent3: #8b5cf6;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --white: #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(10,14,26,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 56px;
+    }
+    nav .logo { font-weight: 700; color: var(--accent); font-size: 1rem; letter-spacing: 0.05em; }
+    nav ul { list-style: none; display: flex; gap: 1.8rem; }
+    nav ul li a {
+      color: var(--muted); text-decoration: none; font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    nav ul li a:hover { color: var(--white); }
+
+    /* ── SECTIONS ── */
+    section {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 5rem 2rem 4rem;
+      max-width: 1100px; margin: 0 auto;
+    }
+    section.full { max-width: 100%; padding-left: 6%; padding-right: 6%; }
+
+    .section-label {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--accent2);
+      margin-bottom: 0.75rem;
+    }
+    h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1; }
+    h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 700; }
+    h3 { font-size: 1.1rem; font-weight: 600; }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .gradient-text-purple {
+      background: linear-gradient(135deg, var(--accent3), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.1rem; color: var(--muted); margin-top: 1.2rem;
+      max-width: 600px; line-height: 1.8;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 20% 80%, rgba(139,92,246,0.06) 0%, transparent 50%);
+      max-width: 100%; padding: 5rem 6% 4rem;
+    }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; }
+    .tag {
+      font-size: 0.75rem; padding: 0.3rem 0.8rem; border-radius: 999px;
+      border: 1px solid var(--border); color: var(--muted);
+    }
+    .tag.blue { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.08); }
+    .tag.cyan { border-color: var(--accent2); color: var(--accent2); background: rgba(6,182,212,0.08); }
+    .tag.purple { border-color: var(--accent3); color: var(--accent3); background: rgba(139,92,246,0.08); }
+    .tag.green { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.08); }
+
+    .hero-stats {
+      display: flex; flex-wrap: wrap; gap: 2rem;
+      margin-top: 3rem;
+    }
+    .stat-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.2rem 1.6rem;
+      min-width: 140px;
+    }
+    .stat-box .num { font-size: 2rem; font-weight: 800; color: var(--white); }
+    .stat-box .label { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── CARDS ── */
+    .card-grid { display: grid; gap: 1.2rem; margin-top: 2rem; }
+    .card-grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .card-grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.6rem;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .card-icon {
+      font-size: 1.8rem; margin-bottom: 0.8rem; display: block;
+    }
+    .card p { color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.7; }
+
+    /* ── PIPELINE ── */
+    #pipeline { max-width: 100%; padding: 5rem 6% 4rem; }
+
+    .pipeline-flow {
+      display: flex; align-items: stretch; flex-wrap: wrap;
+      gap: 0; margin-top: 2.5rem; position: relative;
+    }
+    .pipe-step {
+      flex: 1; min-width: 140px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 0; padding: 1.5rem 1rem;
+      text-align: center; position: relative;
+    }
+    .pipe-step:first-child { border-radius: 16px 0 0 16px; }
+    .pipe-step:last-child { border-radius: 0 16px 16px 0; }
+    .pipe-step .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); color: var(--white);
+      font-size: 0.75rem; font-weight: 700; margin-bottom: 0.8rem;
+    }
+    .pipe-step .step-icon { font-size: 1.6rem; display: block; margin-bottom: 0.5rem; }
+    .pipe-step h4 { font-size: 0.85rem; color: var(--white); }
+    .pipe-step p { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
+    .pipe-arrow {
+      display: flex; align-items: center; color: var(--accent);
+      font-size: 1.2rem; padding: 0 4px; align-self: center;
+    }
+
+    /* vertical detail pipeline */
+    .pipeline-detail {
+      display: flex; flex-direction: column; gap: 0;
+      margin-top: 2.5rem; position: relative;
+    }
+    .pipeline-detail::before {
+      content: ''; position: absolute; left: 24px; top: 0; bottom: 0;
+      width: 2px; background: linear-gradient(to bottom, var(--accent), var(--accent3));
+    }
+    .detail-step {
+      display: flex; gap: 1.5rem; padding: 1.5rem 0;
+      position: relative;
+    }
+    .detail-step .dot {
+      width: 50px; height: 50px; border-radius: 50%;
+      background: var(--card); border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; flex-shrink: 0; z-index: 1;
+    }
+    .detail-step .content { flex: 1; }
+    .detail-step .content h3 { color: var(--white); margin-bottom: 0.4rem; }
+    .detail-step .content p { color: var(--muted); font-size: 0.9rem; }
+    .detail-step .content code {
+      display: inline-block; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.2rem 0.6rem; font-size: 0.78rem; color: var(--accent2);
+      margin-top: 0.5rem;
+    }
+
+    /* ── TECH STACK ── */
+    .tech-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.8rem;
+    }
+    .tech-card .tc-header {
+      display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;
+    }
+    .tc-badge {
+      font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 6px;
+      background: rgba(59,130,246,0.15); color: var(--accent);
+      border: 1px solid var(--accent); font-weight: 600;
+    }
+    .tech-card ul { list-style: none; }
+    .tech-card ul li {
+      font-size: 0.88rem; color: var(--muted); padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border); display: flex; gap: 0.5rem;
+    }
+    .tech-card ul li:last-child { border-bottom: none; }
+    .tech-card ul li::before { content: '→'; color: var(--accent2); }
+
+    /* ── INSIGHTS ── */
+    .insight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 2rem; }
+    @media (max-width: 640px) { .insight-row { grid-template-columns: 1fr; } }
+
+    .insight-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.4rem;
+    }
+    .insight-card .ic-title {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.6rem;
+    }
+    .insight-card .ic-value {
+      font-size: 1.8rem; font-weight: 800; color: var(--white);
+    }
+    .insight-card .ic-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* score bars */
+    .score-bar-wrap { margin-top: 1rem; }
+    .score-bar-label {
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem;
+    }
+    .score-bar {
+      height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(to right, var(--accent), var(--accent2));
+      transition: width 1s ease;
+    }
+
+    /* comparison table */
+    .cmp-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.88rem; }
+    .cmp-table th {
+      text-align: left; padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border); color: var(--muted);
+      font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+    }
+    .cmp-table td {
+      padding: 0.8rem 1rem; border-bottom: 1px solid rgba(30,58,95,0.4);
+      color: var(--text);
+    }
+    .cmp-table tr:last-child td { border-bottom: none; }
+    .cmp-table .good { color: var(--green); }
+    .cmp-table .bad { color: var(--red); }
+    .cmp-table .ok { color: var(--yellow); }
+    .highlight-row { background: rgba(59,130,246,0.06); }
+
+    /* ── QUERY DEMO ── */
+    .query-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.2rem;
+      font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem;
+      position: relative;
+    }
+    .query-box::before { content: 'Q'; color: var(--accent2); font-weight: 700; margin-right: 0.5rem; }
+    .answer-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      border-radius: 12px; padding: 1rem 1.2rem;
+      font-size: 0.88rem; color: var(--text); margin-bottom: 1.2rem;
+    }
+    .answer-box .ans-label {
+      font-size: 0.7rem; color: var(--green); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem;
+    }
+    .citation { font-size: 0.75rem; color: var(--accent); margin-top: 0.5rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 3rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 0.82rem;
+    }
+    footer strong { color: var(--white); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      height: 1px; background: var(--border);
+      max-width: 1100px; margin: 0 auto;
+    }
+
+    /* ── MODALITY BADGES ── */
+    .modality-grid { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1.5rem; }
+    .modality {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.8rem 1.2rem;
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.85rem;
+    }
+    .modality-icon { font-size: 1.2rem; }
+
+    /* animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate { animation: fadeInUp 0.6s ease forwards; }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .delay-3 { animation-delay: 0.3s; opacity: 0; }
+    .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+    /* scroll reveal */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="logo">NASA DOCS RAG</span>
+  <ul>
+    <li><a href="#hero">Overview</a></li>
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#stack">Tech Stack</a></li>
+    <li><a href="#insights">Insights</a></li>
+    <li><a href="#demo">Demo</a></li>
+  </ul>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════════ -->
+<section id="hero">
+  <div class="section-label animate delay-1">DSAI 413 — Multimedia Analytics · Assignment 1</div>
+  <h1 class="animate delay-2">
+    Multi-Modal<br/>
+    <span class="gradient-text">Document QA</span><br/>
+    on NASA Reports
+  </h1>
+  <p class="subtitle animate delay-3">
+    A fully local, open-source Retrieval-Augmented Generation system that reads
+    NASA Technical Reports as <strong>images</strong> — no OCR, no text extraction —
+    and answers questions grounded in the visual content of the pages.
+  </p>
+
+  <div class="hero-tags animate delay-4">
+    <span class="tag blue">ColPali v1.2</span>
+    <span class="tag cyan">Qdrant · MaxSim</span>
+    <span class="tag purple">Qwen2-VL-2B</span>
+    <span class="tag green">Apple MPS · No API Key</span>
+    <span class="tag">Visual Late-Interaction</span>
+    <span class="tag">Multi-Vector Retrieval</span>
+  </div>
+
+  <div class="hero-stats animate delay-4">
+    <div class="stat-box">
+      <div class="num">24</div>
+      <div class="label">NASA Technical Reports</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">1,354</div>
+      <div class="label">Pages Indexed</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">128-d</div>
+      <div class="label">Patch Embeddings</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">2B</div>
+      <div class="label">VLM Parameters</div>
+    </div>
+    <div class="stat-box">
+      <div class="num">~4 GB</div>
+      <div class="label">Total Model Memory</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PROBLEM
+══════════════════════════════════════════════════════════ -->
+<section id="problem">
+  <div class="section-label reveal">The Problem</div>
+  <h2 class="reveal">Traditional RAG breaks on<br/><span class="gradient-text-purple">visual documents</span></h2>
+  <p class="subtitle reveal">
+    NASA technical reports are full of tables, charts, diagrams, and equations.
+    Text-only RAG pipelines lose this information entirely.
+  </p>
+
+  <div class="card-grid card-grid-3" style="margin-top:2rem">
+    <div class="card reveal">
+      <span class="card-icon">📄</span>
+      <h3>OCR is lossy</h3>
+      <p>Extracting text strips away layout, tables, and visual structure that are critical for understanding scientific documents.</p>
+    </div>
+    <div class="card reveal">
+      <span class="card-icon">📊</span>
+      <h3>Charts & Figures are invisible</h3>
+      <p>Graphs, pressure curves, and architecture diagrams carry dense information that text extractors simply skip.</p>
+    </div>
+    <div class="card reveal">
+      <span class="card-icon">🔢</span>
+      <h3>Tables misalign</h3>
+      <p>Complex multi-column tables with merged cells become garbled text, making numerical lookups unreliable.</p>
+    </div>
+  </div>
+
+  <div class="modality-grid reveal" style="margin-top:2rem">
+    <div class="modality"><span class="modality-icon">📝</span> Plain text paragraphs</div>
+    <div class="modality"><span class="modality-icon">📈</span> Line graphs &amp; plots</div>
+    <div class="modality"><span class="modality-icon">📋</span> Data tables</div>
+    <div class="modality"><span class="modality-icon">🖼️</span> System diagrams</div>
+    <div class="modality"><span class="modality-icon">🔬</span> Equations &amp; formulas</div>
+    <div class="modality"><span class="modality-icon">🏗️</span> Architecture schematics</div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SOLUTION / PIPELINE
+══════════════════════════════════════════════════════════ -->
+<section id="pipeline" class="full">
+  <div class="section-label reveal">System Architecture</div>
+  <h2 class="reveal">The <span class="gradient-text">Pipeline</span></h2>
+  <p class="subtitle reveal">
+    Every PDF page is treated as an image from start to finish.
+    No OCR. No chunking. Pure visual understanding.
+  </p>
+
+  <!-- Top-level flow -->
+  <div class="pipeline-flow reveal" style="margin-top:2.5rem">
+    <div class="pipe-step">
+      <span class="step-icon">📄</span>
+      <div class="step-num">1</div>
+      <h4>PDF Input</h4>
+      <p>24 NASA reports</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">🖼️</span>
+      <div class="step-num">2</div>
+      <h4>Page Images</h4>
+      <p>pdf2image · 150 DPI</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">🔬</span>
+      <div class="step-num">3</div>
+      <h4>ColPali Embed</h4>
+      <p>Patch-level · 128-d</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">🗄️</span>
+      <div class="step-num">4</div>
+      <h4>Qdrant Store</h4>
+      <p>MultiVector index</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">🔍</span>
+      <div class="step-num">5</div>
+      <h4>MaxSim Retrieve</h4>
+      <p>Top-K pages</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">👁️</span>
+      <div class="step-num">6</div>
+      <h4>Qwen2-VL</h4>
+      <p>Image + Question</p>
+    </div>
+    <div class="pipe-arrow">›</div>
+    <div class="pipe-step">
+      <span class="step-icon">💬</span>
+      <div class="step-num">7</div>
+      <h4>Cited Answer</h4>
+      <p>Doc · Page ref</p>
+    </div>
+  </div>
+
+  <!-- Detailed steps -->
+  <div class="pipeline-detail" style="margin-top:3.5rem; max-width:800px">
+
+    <div class="detail-step reveal">
+      <div class="dot">📄</div>
+      <div class="content">
+        <h3>Ingestion — PDF → Images</h3>
+        <p>Each PDF is rendered at 150 DPI into JPEG page images using <em>pdf2image</em>. This preserves every visual element: text layout, figures, tables, equations.</p>
+        <code>pdf2image · 150 DPI · JPEG quality 85</code>
+      </div>
+    </div>
+
+    <div class="detail-step reveal">
+      <div class="dot">🔬</div>
+      <div class="content">
+        <h3>ColPali — Visual Patch Embeddings</h3>
+        <p>ColPali v1.2 (based on PaliGemma) splits each page into a grid of visual patches and embeds each patch into a 128-dimensional vector. A single page yields <strong>~1,024 patch vectors</strong> — capturing local visual detail, not just a global summary.</p>
+        <code>vidore/colpali-v1.2 · bfloat16 · MPS</code>
+      </div>
+    </div>
+
+    <div class="detail-step reveal">
+      <div class="dot">🗄️</div>
+      <div class="content">
+        <h3>Qdrant — MultiVector Index</h3>
+        <p>All patch embeddings are stored in Qdrant's <em>MultiVector</em> collection. Each page is a multi-vector point: 1,354 pages × ~1,024 patches × 128 dims.</p>
+        <code>COLLECTION: nasa_colpali · Distance: COSINE · MultiVector MaxSim</code>
+      </div>
+    </div>
+
+    <div class="detail-step reveal">
+      <div class="dot">🔍</div>
+      <div class="content">
+        <h3>Retrieval — MaxSim Late Interaction</h3>
+        <p>At query time, the text query is embedded by ColPali into query-token vectors. Qdrant computes <strong>MaxSim</strong> — for each query token, find the most similar patch vector, then sum the maxima. This is the same late-interaction scoring as ColBERT, applied visually.</p>
+        <code>Score(q, d) = Σ max_j cos(qᵢ, dⱼ)</code>
+      </div>
+    </div>
+
+    <div class="detail-step reveal">
+      <div class="dot">👁️</div>
+      <div class="content">
+        <h3>Generation — Qwen2-VL-2B</h3>
+        <p>The top retrieved page images are fed alongside the question into Qwen2-VL-2B-Instruct, a 2B parameter vision-language model running fully locally on Apple MPS. The model reads the actual page image and produces a grounded answer.</p>
+        <code>Qwen/Qwen2-VL-2B-Instruct · bfloat16 · max_new_tokens=300</code>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TECH STACK
+══════════════════════════════════════════════════════════ -->
+<section id="stack">
+  <div class="section-label reveal">Technology</div>
+  <h2 class="reveal">Tech <span class="gradient-text">Stack</span></h2>
+  <p class="subtitle reveal">Entirely open-source. Runs 100% locally. No API keys, no cloud.</p>
+
+  <div class="card-grid card-grid-2" style="margin-top:2rem">
+
+    <div class="tech-card reveal">
+      <div class="tc-header">
+        <span style="font-size:1.4rem">🔬</span>
+        <h3>ColPali v1.2</h3>
+        <span class="tc-badge">RETRIEVAL</span>
+      </div>
+      <ul>
+        <li>Built on PaliGemma (Google) vision encoder</li>
+        <li>Multi-vector patch-level page embeddings</li>
+        <li>128-dimensional output space</li>
+        <li>Late-interaction MaxSim scoring (ColBERT-style)</li>
+        <li>No OCR required — purely visual</li>
+      </ul>
+    </div>
+
+    <div class="tech-card reveal">
+      <div class="tc-header">
+        <span style="font-size:1.4rem">🗄️</span>
+        <h3>Qdrant</h3>
+        <span class="tc-badge" style="border-color:var(--accent2);color:var(--accent2);background:rgba(6,182,212,0.1)">VECTOR DB</span>
+      </div>
+      <ul>
+        <li>Local on-disk persistence (no server needed)</li>
+        <li>Native MultiVector collection support</li>
+        <li>MaxSim comparator built-in</li>
+        <li>Payload-based metadata filtering</li>
+        <li>Stores doc name, page number, image path</li>
+      </ul>
+    </div>
+
+    <div class="tech-card reveal">
+      <div class="tc-header">
+        <span style="font-size:1.4rem">👁️</span>
+        <h3>Qwen2-VL-2B-Instruct</h3>
+        <span class="tc-badge" style="border-color:var(--accent3);color:var(--accent3);background:rgba(139,92,246,0.1)">GENERATOR</span>
+      </div>
+      <ul>
+        <li>2B parameter vision-language model by Alibaba</li>
+        <li>Accepts image + text prompt natively</li>
+        <li>Runs on Apple MPS (bfloat16, ~4 GB)</li>
+        <li>chat-template + process_vision_info pipeline</li>
+        <li>Produces grounded, cited answers</li>
+      </ul>
+    </div>
+
+    <div class="tech-card reveal">
+      <div class="tc-header">
+        <span style="font-size:1.4rem">⚙️</span>
+        <h3>Infrastructure</h3>
+        <span class="tc-badge" style="border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.1)">LOCAL</span>
+      </div>
+      <ul>
+        <li>Streamlit — interactive web UI</li>
+        <li>pdf2image — PDF-to-image conversion at 150 DPI</li>
+        <li>Apple MPS (Metal) GPU acceleration</li>
+        <li>HuggingFace Transformers 5.x</li>
+        <li>Python 3.11 · PyTorch 2.x</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     INSIGHTS
+══════════════════════════════════════════════════════════ -->
+<section id="insights">
+  <div class="section-label reveal">Analysis &amp; Results</div>
+  <h2 class="reveal">Key <span class="gradient-text">Insights</span></h2>
+  <p class="subtitle reveal">Observations from building and running the system on 24 NASA technical reports.</p>
+
+  <div class="insight-row">
+    <div class="insight-card reveal">
+      <div class="ic-title">Dataset Scale</div>
+      <div class="ic-value">1,354</div>
+      <div class="ic-sub">pages indexed across 24 documents · avg 56 pages/doc</div>
+    </div>
+    <div class="insight-card reveal">
+      <div class="ic-title">Patch Vectors per Page</div>
+      <div class="ic-value">~1,024</div>
+      <div class="ic-sub">128-dim vectors per page · dense visual coverage</div>
+    </div>
+    <div class="insight-card reveal">
+      <div class="ic-title">Retrieval Latency</div>
+      <div class="ic-value">&lt; 1s</div>
+      <div class="ic-sub">typical MaxSim query on local Qdrant instance</div>
+    </div>
+    <div class="insight-card reveal">
+      <div class="ic-title">Generation Latency</div>
+      <div class="ic-value">~15s</div>
+      <div class="ic-sub">Qwen2-VL-2B on Apple M-series MPS per page</div>
+    </div>
+  </div>
+
+  <!-- ColPali retrieval quality by query type -->
+  <div class="card reveal" style="margin-top:1.5rem">
+    <h3>Retrieval Quality by Query Type</h3>
+    <p style="margin-bottom:1.2rem">ColPali's patch-level embeddings capture different content types to varying degrees.</p>
+
+    <div class="score-bar-wrap">
+      <div class="score-bar-label"><span>Text-based queries</span><span>Strong</span></div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:88%"></div></div>
+    </div>
+    <div class="score-bar-wrap" style="margin-top:0.8rem">
+      <div class="score-bar-label"><span>Table / numerical queries</span><span>Good</span></div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:75%"></div></div>
+    </div>
+    <div class="score-bar-wrap" style="margin-top:0.8rem">
+      <div class="score-bar-label"><span>Figure / chart queries</span><span>Good</span></div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:72%"></div></div>
+    </div>
+    <div class="score-bar-wrap" style="margin-top:0.8rem">
+      <div class="score-bar-label"><span>Cross-modal queries</span><span>Moderate</span></div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:60%"></div></div>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <div class="card reveal" style="margin-top:1.5rem">
+    <h3>Approach Comparison</h3>
+    <table class="cmp-table">
+      <thead>
+        <tr>
+          <th>Approach</th>
+          <th>Figures</th>
+          <th>Tables</th>
+          <th>Equations</th>
+          <th>Setup</th>
+          <th>Local</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Text RAG (OCR + chunk)</td>
+          <td class="bad">✗ Lost</td>
+          <td class="ok">~ Partial</td>
+          <td class="bad">✗ Garbled</td>
+          <td class="good">Simple</td>
+          <td class="good">✓</td>
+        </tr>
+        <tr>
+          <td>GPT-4o Vision API</td>
+          <td class="good">✓ Excellent</td>
+          <td class="good">✓ Excellent</td>
+          <td class="good">✓ Good</td>
+          <td class="ok">Moderate</td>
+          <td class="bad">✗ Cloud</td>
+        </tr>
+        <tr class="highlight-row">
+          <td><strong>ColPali + Qwen2-VL (Ours)</strong></td>
+          <td class="good">✓ Good</td>
+          <td class="good">✓ Good</td>
+          <td class="ok">~ Partial</td>
+          <td class="ok">Moderate</td>
+          <td class="good">✓ Full</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Key findings -->
+  <div class="card-grid card-grid-2" style="margin-top:1.5rem">
+    <div class="card reveal">
+      <span class="card-icon">💡</span>
+      <h3>No OCR = No Bottleneck</h3>
+      <p>Treating pages as images removes the OCR step entirely. Charts, handwritten annotations, and complex layouts are handled natively by the vision encoder.</p>
+    </div>
+    <div class="card reveal">
+      <span class="card-icon">🎯</span>
+      <h3>MaxSim Beats Cosine for Documents</h3>
+      <p>Late-interaction MaxSim finds the right page even when only one patch region is relevant to the query — a single-vector embedding would dilute this signal.</p>
+    </div>
+    <div class="card reveal">
+      <span class="card-icon">⚡</span>
+      <h3>bfloat16 is Critical on MPS</h3>
+      <p>float16 causes NaN/inf during sampling on Apple MPS due to lower dynamic range. Switching to bfloat16 resolves numerical instability in the VLM.</p>
+    </div>
+    <div class="card reveal">
+      <span class="card-icon">🔗</span>
+      <h3>Cross-Modal is the Hardest</h3>
+      <p>Queries that require reading both a figure and a related table (e.g. "compare chart data with table values") are the most challenging for both retrieval and generation.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     DEMO EXAMPLES
+══════════════════════════════════════════════════════════ -->
+<section id="demo">
+  <div class="section-label reveal">Live System</div>
+  <h2 class="reveal">Example <span class="gradient-text">Queries</span></h2>
+  <p class="subtitle reveal">
+    Real query types the system handles — grounded in retrieved page images from NASA technical reports.
+  </p>
+
+  <div style="margin-top:2rem; max-width:800px">
+
+    <!-- Text query -->
+    <div class="reveal">
+      <div class="query-box">What are the main objectives of this research?</div>
+      <div class="answer-box">
+        <div class="ans-label">Answer · Text Query</div>
+        The research investigates propulsion efficiency in variable-thrust rocket nozzles under high-altitude conditions,
+        focusing on combustion stability and structural thermal limits across a range of thrust levels.
+        <div class="citation">[nasa_19720022249, p.3] · [nasa_19810002523, p.1]</div>
+      </div>
+    </div>
+
+    <!-- Table query -->
+    <div class="reveal">
+      <div class="query-box">What are the performance values in the results table?</div>
+      <div class="answer-box">
+        <div class="ans-label">Answer · Table Query</div>
+        The results table on page 12 shows thrust efficiency ranging from 87.3% to 94.1% across five test configurations,
+        with peak specific impulse of 312 s at a chamber pressure of 2,200 psi.
+        <div class="citation">[nasa_19840023019, p.12]</div>
+      </div>
+    </div>
+
+    <!-- Figure query -->
+    <div class="reveal">
+      <div class="query-box">What does the pressure vs velocity graph show?</div>
+      <div class="answer-box">
+        <div class="ans-label">Answer · Figure Query</div>
+        The graph shows an inverse relationship between chamber pressure and exhaust velocity. As pressure increases
+        from 500 to 3,000 psi, exit velocity peaks around 2,200 psi before declining due to nozzle choking effects.
+        <div class="citation">[nasa_19850015958, p.8]</div>
+      </div>
+    </div>
+
+    <!-- Cross-modal -->
+    <div class="reveal">
+      <div class="query-box">What is the maximum thrust efficiency and at what temperature?</div>
+      <div class="answer-box">
+        <div class="ans-label">Answer · Cross-Modal Query</div>
+        Based on the data visible on this page, the maximum thrust efficiency of 94.1% is achieved at a combustion
+        chamber temperature of approximately 3,450 K, as indicated in Table 3 alongside the efficiency curve in Figure 6.
+        <div class="citation">[nasa_19870013576, p.15] · [nasa_19890009866, p.22]</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- How to run -->
+  <div class="card reveal" style="margin-top:2rem; max-width:800px">
+    <h3>Running the System</h3>
+    <p style="color:var(--muted); font-size:0.88rem; margin-top:0.6rem; line-height:2">
+      <code style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.2rem 0.6rem; color:var(--accent2)">pip install -r requirements.txt</code>
+      &nbsp;→ install dependencies<br/>
+      <code style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.2rem 0.6rem; color:var(--accent2)">python download_dataset.py</code>
+      &nbsp;→ fetch 24 NASA PDFs<br/>
+      <code style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.2rem 0.6rem; color:var(--accent2)">python -m src.ingest</code>
+      &nbsp;→ embed &amp; index 1,354 pages<br/>
+      <code style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0.2rem 0.6rem; color:var(--accent2)">streamlit run app.py</code>
+      &nbsp;→ launch the UI
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════════════ -->
+<footer>
+  <p><strong>Multi-Modal Document QA — NASA Technical Reports</strong></p>
+  <p style="margin-top:0.4rem">ColPali · Qdrant · Qwen2-VL-2B · Apple MPS · DSAI 413 Multimedia Analytics</p>
+</footer>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Trigger hero animations immediately
+  document.querySelectorAll('.animate').forEach(el => el.style.animationPlayState = 'running');
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# Data — large files, not tracked in git
+data/pdfs/
+data/images/
+data/qdrant_db/
+data/index/
+data/eval_results.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Environment variables (keep .env.example)
+.env
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model cache
+*.bin
+*.safetensors

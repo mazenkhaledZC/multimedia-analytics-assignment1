@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "Bash(brew install *)",
+      "Bash(python download_dataset.py)",
+      "Bash(python3 *)",
+      "Bash(HF_TOKEN=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 huggingface-cli login *)",
+      "Bash(hf auth *)",
+      "Bash(pip index *)",
+      "Bash(ollama list *)",
+      "Bash(python *)",
+      "Bash(open *)",
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
